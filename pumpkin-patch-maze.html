@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pumpkin Patch Maze</title>
+<style>
+  :root{
+    --bg:#0b0b12; --panel:#1b1426; --ink:#ffffff; --muted:#e6defa;
+    --orange:#ff7a1a; --orange-soft:#ffb366; --gold:#ffd966; --lime:#b8ff8a; --purple:#6b3fa0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink)}
+  body{font-family:Verdana,Arial,Helvetica,sans-serif;line-height:1.5;font-size:18px}
+  main{padding:10px}
+  .layout{display:flex;gap:18px;align-items:flex-start;justify-content:center}
+  .board-wrap{flex:0 0 auto;width:min(520px, calc(100vh - 24px), 60vw)}
+  .board{position:relative;border:3px solid var(--gold);border-radius:12px;background:#2a1a0c;overflow:hidden;
+    box-shadow:0 0 0 3px #3d1f00}
+  canvas{display:block;width:100%;aspect-ratio:1/1;touch-action:none}
+  .panel{flex:1 1 240px;max-width:320px;min-width:220px;background:var(--panel);border-left:6px solid var(--orange);
+    border-radius:8px;padding:14px 16px}
+  .kicker{margin:0;font-family:"Courier New",Courier,monospace;font-size:14px;letter-spacing:3px;color:var(--muted);font-weight:bold}
+  h1{font-family:"Courier New",Courier,monospace;font-size:26px;line-height:1.15;margin:4px 0 6px;color:var(--orange-soft)}
+  .intro{margin:0 0 12px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 12px}
+  .stats div{border:1px solid #5a4a1a;background:#1f1508;border-radius:6px;padding:4px 4px;text-align:center}
+  .stats dt{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--gold);font-weight:bold}
+  .stats dd{margin:0;font-weight:bold;font-size:20px;font-family:"Courier New",Courier,monospace}
+  .size{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  label{font-weight:bold;color:var(--gold)}
+  select,button{font:inherit;border-radius:6px}
+  select{padding:5px 8px;border:2px solid var(--gold);background:#000;color:#fff}
+  button{cursor:pointer;border:2px solid var(--gold);background:var(--gold);color:#000;padding:8px 12px;font-weight:bold}
+  button:hover{background:#fff;border-color:#fff}
+  button.secondary{background:transparent;color:#fff}
+  button.secondary:hover{background:#3d1f00}
+  :focus-visible{outline:3px solid var(--lime);outline-offset:3px}
+  .controls{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,48px);gap:6px;justify-content:center;margin:4px 0 12px}
+  .controls button{padding:0;font-size:20px}
+  .controls .up{grid-column:2;grid-row:1}.controls .left{grid-column:1;grid-row:2}
+  .controls .down{grid-column:2;grid-row:2}.controls .right{grid-column:3;grid-row:2}
+  .actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .help{font-size:16px;color:var(--muted);margin:12px 0 0}
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(11,11,18,.88);padding:16px;text-align:center}
+  .overlay[hidden]{display:none}
+  .card{background:#000;border:3px dashed var(--gold);border-radius:10px;padding:16px 18px;max-width:92%}
+  .card h2{margin:0 0 8px;color:var(--orange-soft);font-family:"Courier New",Courier,monospace;font-size:24px}
+  .card p{margin:0 0 10px}
+  .card .barnaby{font-style:italic;color:#ffe0b8}
+  .card .glitch{font-family:"Courier New",Courier,monospace;color:var(--lime)}
+  .start-btn{font-size:22px;padding:12px 24px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  @media (max-width:660px){
+    .layout{flex-direction:column;align-items:center}
+    .board-wrap{width:min(100%, 480px)}
+    .panel{max-width:480px;width:100%}
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="layout">
+    <div class="board-wrap">
+      <div class="board">
+        <canvas id="maze" tabindex="0" role="img" aria-label="Pumpkin patch maze"></canvas>
+        <div class="overlay" id="startOverlay">
+          <button class="start-btn" id="startBtn">🎃 Start the maze</button>
+        </div>
+        <section class="overlay" id="win" hidden aria-labelledby="winTitle">
+          <div class="card">
+            <h2 id="winTitle" tabindex="-1"></h2>
+            <p id="winMsg" class="barnaby"></p>
+            <p id="winGlitch" class="glitch"></p>
+            <p id="winStats"></p>
+            <button id="againBtn">Play again</button>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="panel">
+      <p class="kicker">MODULE 1 &middot; THE PATCH</p>
+      <h1><span aria-hidden="true">🎃 </span>Pumpkin Patch Maze</h1>
+      <p class="intro">Barnaby needs every pumpkin brought in before dark. Gather them all, then meet him at the gate in the bottom right corner.</p>
+
+      <dl class="stats" aria-hidden="true">
+        <div><dt>Pumpkins</dt><dd id="pCount">0/0</dd></div>
+        <div><dt>Moves</dt><dd id="mCount">0</dd></div>
+        <div><dt>Time</dt><dd id="tCount">0:00</dd></div>
+      </dl>
+
+      <div class="size">
+        <label for="size">Patch size</label>
+        <select id="size">
+          <option value="small">Small</option>
+          <option value="medium" selected>Medium</option>
+          <option value="large">Large</option>
+        </select>
+      </div>
+
+      <div class="controls" role="group" aria-label="Movement buttons">
+        <button class="up" data-dir="up" aria-label="Move up">▲</button>
+        <button class="left" data-dir="left" aria-label="Move left">◀</button>
+        <button class="down" data-dir="down" aria-label="Move down">▼</button>
+        <button class="right" data-dir="right" aria-label="Move right">▶</button>
+      </div>
+
+      <div class="actions">
+        <button class="secondary" id="whereBtn">Where am I?</button>
+        <button class="secondary" id="newBtn">New maze</button>
+      </div>
+      <p class="help">Arrow keys or W A S D, the buttons, or swipe. “Where am I?” reads your open paths and the nearest pumpkin aloud.</p>
+    </div>
+  </div>
+  <div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+</main>
+
+<script>
+/* ===== Easy-to-edit settings ===== */
+const CONFIG = {
+  sizes:    { small: 7, medium: 10, large: 13 },   // cells per side
+  pumpkins: { small: 3, medium: 5,  large: 7 },    // pumpkins to collect
+  winTitle: "Every pumpkin is in!",
+  winMessage: "Barnaby tips his hat at the gate. \"Thank you kindly. Is there anything else I can help you with?\"",
+  winGlitch: "As you leave, the gate sign flickers for a second: 404. Probably nothing.",
+  oddPumpkin: true   // one pumpkin has 4 0 4 carved into it (a Module 2 clue). Set false to turn off.
+};
+/* ================================== */
+
+const DIRS = {
+  up:    { dr:-1, dc: 0, wall:"n", opp:"s" },
+  down:  { dr: 1, dc: 0, wall:"s", opp:"n" },
+  left:  { dr: 0, dc:-1, wall:"w", opp:"e" },
+  right: { dr: 0, dc: 1, wall:"e", opp:"w" }
+};
+
+const canvas = document.getElementById("maze");
+const ctx = canvas.getContext("2d");
+const live = document.getElementById("live");
+const startOverlay = document.getElementById("startOverlay");
+const els = {
+  p: document.getElementById("pCount"), m: document.getElementById("mCount"),
+  t: document.getElementById("tCount"), size: document.getElementById("size"),
+  win: document.getElementById("win"), winTitle: document.getElementById("winTitle"),
+  winMsg: document.getElementById("winMsg"), winGlitch: document.getElementById("winGlitch"), winStats: document.getElementById("winStats")
+};
+
+let state, started = false;
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+function generate(n){
+  const cells = Array.from({length:n},()=>Array.from({length:n},()=>({n:true,e:true,s:true,w:true})));
+  const seen = Array.from({length:n},()=>Array(n).fill(false));
+  const stack = [[0,0]]; seen[0][0] = true;
+  while(stack.length){
+    const [r,c] = stack[stack.length-1];
+    const opts = shuffle(Object.values(DIRS)).filter(d=>{
+      const nr=r+d.dr, nc=c+d.dc;
+      return nr>=0 && nc>=0 && nr<n && nc<n && !seen[nr][nc];
+    });
+    if(!opts.length){ stack.pop(); continue; }
+    const d = opts[0], nr=r+d.dr, nc=c+d.dc;
+    cells[r][c][d.wall] = false; cells[nr][nc][d.opp] = false;
+    seen[nr][nc] = true; stack.push([nr,nc]);
+  }
+  return cells;
+}
+
+function placePumpkins(cells, n, count){
+  const isSpecial = (r,c)=> (r===0&&c===0) || (r===n-1&&c===n-1);
+  const deadEnds = [], others = [];
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++){
+    if(isSpecial(r,c)) continue;
+    const w = cells[r][c]; const walls = w.n+w.e+w.s+w.w;
+    (walls===3 ? deadEnds : others).push([r,c]);
+  }
+  return new Set(shuffle(deadEnds).concat(shuffle(others)).slice(0,count).map(([r,c])=>r+","+c));
+}
+
+function newGame(){
+  if(state) clearInterval(state.timer);
+  const key = els.size.value, n = CONFIG.sizes[key], total = CONFIG.pumpkins[key];
+  const cells = generate(n);
+  const pumpkins = placePumpkins(cells,n,total);
+  state = { n, cells, r:0, c:0, pumpkins, total, odd: CONFIG.oddPumpkin ? [...pumpkins][pumpkins.size-1] : null,
+            moves:0, start:null, end:null, timer:null, done:false };
+  els.win.hidden = true;
+  updateStats(); draw();
+  if(started) announce(`New ${key} maze, ${n} by ${n}. You start in the top left corner. Collect ${total} pumpkins, then reach the gate in the bottom right. ${openPaths()}`);
+}
+
+function startPlay(){
+  started = true; startOverlay.hidden = true; canvas.focus();
+  announce(`Maze started, ${state.n} by ${state.n}. You start in the top left corner. Collect ${state.total} pumpkins, then reach the gate in the bottom right. Use the arrow keys to move. ${openPaths()}`);
+}
+
+function openPaths(){
+  const w = state.cells[state.r][state.c];
+  return `Open paths: ${Object.entries(DIRS).filter(([,d])=>!w[d.wall]).map(([k])=>k).join(", ")}.`;
+}
+
+function nearestPumpkin(){
+  let best=null, bd=Infinity;
+  state.pumpkins.forEach(k=>{
+    const [r,c]=k.split(",").map(Number), d=Math.abs(r-state.r)+Math.abs(c-state.c);
+    if(d<bd){bd=d;best=[r,c];}
+  });
+  if(!best) return "All pumpkins collected. The gate is in the bottom right corner.";
+  const parts=[], dr=best[0]-state.r, dc=best[1]-state.c;
+  if(dr) parts.push(`${Math.abs(dr)} ${Math.abs(dr)===1?"row":"rows"} ${dr>0?"down":"up"}`);
+  if(dc) parts.push(`${Math.abs(dc)} ${Math.abs(dc)===1?"column":"columns"} ${dc>0?"right":"left"}`);
+  return `Nearest pumpkin is ${parts.join(" and ")}, as the crow flies.`;
+}
+
+const collected = ()=> state.total - state.pumpkins.size;
+
+function whereAmI(){
+  const left = state.pumpkins.size;
+  announce(`Row ${state.r+1}, column ${state.c+1} of ${state.n}. ${openPaths()} ${left} ${left===1?"pumpkin":"pumpkins"} left. ${nearestPumpkin()}`);
+}
+
+function move(dir){
+  if(state.done) return;
+  if(!started){ started = true; startOverlay.hidden = true; }
+  const d = DIRS[dir];
+  if(state.cells[state.r][state.c][d.wall]){ announce(`A hay bale blocks the way ${dir}.`); return; }
+  if(!state.start){ state.start = Date.now(); state.timer = setInterval(updateStats,1000); }
+  state.r += d.dr; state.c += d.dc; state.moves++;
+  let msg = `Moved ${dir}.`;
+  const key = state.r+","+state.c;
+  if(state.pumpkins.has(key)){
+    state.pumpkins.delete(key);
+    msg += ` Pumpkin found! ${collected()} of ${state.total}.`;
+    if(key===state.odd) msg += " Odd. Someone carved 4 0 4 into this one.";
+    if(!state.pumpkins.size) msg += " That's all of them. The gate is open!";
+  }
+  if(state.r===state.n-1 && state.c===state.n-1){
+    if(state.pumpkins.size){ const k=state.pumpkins.size; msg += ` The gate is locked. Find ${k} more ${k===1?"pumpkin":"pumpkins"}.`; }
+    else { updateStats(); draw(); return win(); }
+  }
+  updateStats(); draw(); announce(msg + " " + openPaths());
+}
+
+function fmtTime(){
+  if(!state.start) return "0:00";
+  const s = Math.floor(((state.end||Date.now()) - state.start)/1000);
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+}
+
+function updateStats(){
+  els.p.textContent = `${collected()}/${state.total}`;
+  els.m.textContent = state.moves;
+  els.t.textContent = fmtTime();
+  canvas.setAttribute("aria-label",
+    `Pumpkin patch maze, ${state.n} by ${state.n}. Your lantern is at row ${state.r+1}, column ${state.c+1}. ${collected()} of ${state.total} pumpkins collected.`);
+}
+
+function win(){
+  state.done = true; state.end = Date.now(); clearInterval(state.timer); updateStats();
+  els.winTitle.textContent = CONFIG.winTitle;
+  els.winMsg.textContent = CONFIG.winMessage;
+  els.winGlitch.textContent = CONFIG.winGlitch;
+  els.winStats.textContent = `You finished in ${state.moves} moves and ${fmtTime()}.`;
+  els.win.hidden = false;
+  els.winTitle.focus();
+}
+
+function announce(text){ live.textContent = ""; setTimeout(()=>{ live.textContent = text; }, 30); }
+
+/* ---------- Drawing ---------- */
+function draw(){
+  const size = canvas.clientWidth, dpr = window.devicePixelRatio || 1;
+  if(!size) return;
+  canvas.width = Math.round(size*dpr); canvas.height = Math.round(size*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const n = state.n, cs = size/n;
+
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++){
+    ctx.fillStyle = (r+c)%2 ? "#2e1d0e" : "#33210f";
+    ctx.fillRect(c*cs, r*cs, cs, cs);
+  }
+  drawGate((n-1)*cs, (n-1)*cs, cs, state.pumpkins.size===0);
+
+  ctx.lineCap = "round";
+  const lw = Math.max(4, cs*0.2);
+  for(const [color,width] of [["#000000",lw+3],["#c9922e",lw-1],["#ffd966",Math.max(1.5,lw*0.25)]]){
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath();
+    for(let r=0;r<n;r++) for(let c=0;c<n;c++){
+      const w = state.cells[r][c], x=c*cs, y=r*cs;
+      if(w.n){ ctx.moveTo(x,y); ctx.lineTo(x+cs,y); }
+      if(w.w){ ctx.moveTo(x,y); ctx.lineTo(x,y+cs); }
+      if(r===n-1 && w.s){ ctx.moveTo(x,y+cs); ctx.lineTo(x+cs,y+cs); }
+      if(c===n-1 && w.e){ ctx.moveTo(x+cs,y); ctx.lineTo(x+cs,y+cs); }
+    }
+    ctx.stroke();
+  }
+
+  state.pumpkins.forEach(k=>{
+    const [r,c]=k.split(",").map(Number);
+    drawPumpkin(c*cs+cs/2, r*cs+cs/2+cs*0.04, cs*0.3, k===state.odd);
+  });
+  drawPlayer(state.c*cs+cs/2, state.r*cs+cs/2, cs*0.3);
+}
+
+function drawPumpkin(x,y,r,odd){
+  ctx.fillStyle="#2f6b1f"; ctx.fillRect(x-r*0.12, y-r*1.15, r*0.24, r*0.4);
+  for(const [dx,rx] of [[-0.5,0.62],[0.5,0.62],[0,0.72]]){
+    ctx.beginPath(); ctx.ellipse(x+dx*r, y, r*rx, r*0.85, 0, 0, Math.PI*2);
+    ctx.fillStyle="#ee7a1d"; ctx.fill();
+    ctx.lineWidth=Math.max(1,r*0.08); ctx.strokeStyle="#a8460c"; ctx.stroke();
+  }
+  ctx.beginPath(); ctx.ellipse(x+r*0.35, y-r*1.0, r*0.28, r*0.13, -0.5, 0, Math.PI*2);
+  ctx.fillStyle="#4f8a2f"; ctx.fill();
+  if(odd){
+    ctx.fillStyle="#3d1f00"; ctx.font=`bold ${Math.max(7,r*0.62)}px "Courier New", monospace`;
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("404", x, y+r*0.05);
+  }
+}
+
+function drawPlayer(x,y,r){
+  const g = ctx.createRadialGradient(x,y,r*0.2,x,y,r*1.6);
+  g.addColorStop(0,"rgba(255,217,102,.75)"); g.addColorStop(1,"rgba(255,217,102,0)");
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r*1.6,0,Math.PI*2); ctx.fill();
+  ctx.lineWidth=Math.max(1.5,r*0.12); ctx.strokeStyle="#000";
+  ctx.beginPath(); ctx.arc(x,y-r*0.75,r*0.3,Math.PI,0); ctx.stroke();
+  ctx.fillStyle="#3a3a3a"; ctx.fillRect(x-r*0.55,y-r*0.65,r*1.1,r*0.22); ctx.fillRect(x-r*0.55,y+r*0.55,r*1.1,r*0.22);
+  ctx.fillStyle="#fff3b0"; ctx.fillRect(x-r*0.45,y-r*0.43,r*0.9,r*0.98);
+  ctx.strokeRect(x-r*0.45,y-r*0.43,r*0.9,r*0.98);
+  ctx.fillStyle="#ff7a1a"; ctx.beginPath(); ctx.ellipse(x,y+r*0.12,r*0.16,r*0.28,0,0,Math.PI*2); ctx.fill();
+}
+
+function drawGate(x,y,cs,open){
+  const p = cs*0.12;
+  ctx.fillStyle = open ? "#1f3d12" : "#1f1508"; ctx.fillRect(x,y,cs,cs);
+  ctx.fillStyle="#a8743a";
+  ctx.fillRect(x+p, y+p, cs*0.1, cs-2*p); ctx.fillRect(x+cs-p-cs*0.1, y+p, cs*0.1, cs-2*p);
+  ctx.fillRect(x+p, y+cs*0.3, cs-2*p, cs*0.09); ctx.fillRect(x+p, y+cs*0.62, cs-2*p, cs*0.09);
+  ctx.fillStyle = open ? "#b8ff8a" : "#ffd966";
+  ctx.font = `bold ${Math.max(8,cs*0.2)}px Arial, sans-serif`;
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(open ? "EXIT" : "🔒", x+cs/2, y+cs*0.5);
+}
+
+/* ---------- Input ---------- */
+const KEYMAP = { ArrowUp:"up", ArrowDown:"down", ArrowLeft:"left", ArrowRight:"right",
+                 w:"up", s:"down", a:"left", d:"right", W:"up", S:"down", A:"left", D:"right" };
+document.addEventListener("keydown", e=>{
+  if(e.target.tagName==="SELECT" || e.altKey || e.ctrlKey || e.metaKey) return;
+  const dir = KEYMAP[e.key];
+  if(dir){ e.preventDefault(); move(dir); }
+});
+document.querySelectorAll(".controls button").forEach(b=>b.addEventListener("click",()=>move(b.dataset.dir)));
+document.getElementById("startBtn").addEventListener("click", startPlay);
+document.getElementById("whereBtn").addEventListener("click", whereAmI);
+document.getElementById("newBtn").addEventListener("click", ()=>{ newGame(); });
+document.getElementById("againBtn").addEventListener("click", ()=>{ newGame(); canvas.focus(); });
+els.size.addEventListener("change", newGame);
+
+let touch=null;
+canvas.addEventListener("pointerdown", e=>{ touch=[e.clientX,e.clientY]; canvas.focus(); });
+canvas.addEventListener("pointerup", e=>{
+  if(!touch) return;
+  const dx=e.clientX-touch[0], dy=e.clientY-touch[1]; touch=null;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<20) return;
+  move(Math.abs(dx)>Math.abs(dy) ? (dx>0?"right":"left") : (dy>0?"down":"up"));
+});
+window.addEventListener("resize", ()=>draw());
+if(window.ResizeObserver) new ResizeObserver(()=>draw()).observe(canvas);
+
+newGame();
+</script>
+</body>
+</html>
